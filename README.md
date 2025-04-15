@@ -33,7 +33,7 @@ $ pip uninstall west
 
 Configure the project:
 ```bash
-$ cmake -Bbuild_cmake -GNinja \
+$ Zephyr_DIR=$(pwd)/zephyr cmake -Bbuild_cmake -GNinja \
 -DZEPHYR_MODULES="$(pwd)/modules/hal/atmel;$(pwd)/modules/hal/cmsis" \
 -DBOARD=robokit1 \
 app/
@@ -46,5 +46,5 @@ $ ninja -Cbuild_cmake
 
 Build libzephyr.a:
 ```bash
-$ ninja -Cbuild_cmake -t libzephyr.a
+$ ninja -Cbuild_cmake libzephyr.a
 ```
