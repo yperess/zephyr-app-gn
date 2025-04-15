@@ -1,0 +1,21 @@
+action("configure_cmake"){
+  script = "configure_cmake.py"
+  outputs = [ "$target_out_dir/build_cmake" ]
+}
+
+action("build_zephyr_lib"){
+  script = "build_zephyr_lib.py"
+  outputs = [ "$target_out_dir/build_cmake/libzephyr.a" ]
+  deps = [ 
+    ":configure_cmake"
+  ]
+}
+
+
+executable("test") {
+  sources = ["app/main.cc"]
+  deps = [ 
+    ":build_zephyr_lib", 
+  ]
+
+}
