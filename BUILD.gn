@@ -1,21 +1,53 @@
-action("configure_cmake"){
+action("configure_cmake") {
   script = "configure_cmake.py"
   outputs = [ "$target_out_dir/build_cmake" ]
 }
 
-action("build_zephyr_lib"){
+action("build_zephyr_lib") {
   script = "build_zephyr_lib.py"
-  outputs = [ "$target_out_dir/build_cmake/libzephyr.a" ]
-  deps = [ 
-    ":configure_cmake"
+  outputs = [
+    "$target_out_dir/../build_cmake/zephyr/libzephyr.a",
+    "$target_out_dir/../build_cmake/zephyr/include/generated/zephyr/autoconf.h",
+    "$target_out_dir/../build_cmake/zephyr/include/generated/zephyr/devicetree_generated.h",
+  ]
+  deps = [ ":configure_cmake" ]
+  args = [
+    "-t",
+    "libzephyr.a",
   ]
 }
 
-
-executable("test") {
-  sources = ["app/main.cc"]
-  deps = [ 
-    ":build_zephyr_lib", 
+action("build_pre0_cmd") {
+  script = "build_zephyr_lib.py"
+  outputs = [ "$target_out_dir/../build_cmake/zephyr/linker_zephyr_pre0.cmd" ]
+  deps = [ ":configure_cmake" ]
+  args = [
+    "-t",
+    "zephyr/linker_zephyr_pre0.cmd",
   ]
-
 }
+
+config("public_includes") {
+  include_dirs = [
+    "zephyr/include",
+    rebase_path(target_out_dir, root_build_dir) + "/../build_cmake/zephyr/include",
+    rebase_path(target_out_dir, root_build_dir) + "/../build_cmake/zephyr/include/generated",
+  ]
+}
+
+static_library("hearables_app") {
+  sources = [ "app/main.cc" ]
+  public_configs = [":public_includes"]
+  cflags = [
+    "-include",
+    rebase_path(target_out_dir, root_build_dir) + "/../build_cmake/zephyr/include/generated/zephyr/autoconf.h",
+    "-include",
+    rebase_path(target_out_dir, root_build_dir) + "/../build_cmake/zephyr/include/generated/zephyr/devicetree_generated.h",
+  ]
+  deps = [
+    # It's not enough to just link the Zephyr library. This library depends on the Zephyr headers to it needs to work like zephyr_library() from extensions.cmake where we depend on the Zephyr interface.
+    # See zephyr/cmake/modules/extensions.cmake
+    ":build_zephyr_lib",
+  ]
+}
+# Build the zephyr_pre0.elf but use our own app target instead of the one provided by Zephyr.
