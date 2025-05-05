@@ -30,24 +30,115 @@ action("build_pre0_cmd") {
 config("public_includes") {
   include_dirs = [
     "zephyr/include",
-    rebase_path(target_out_dir, root_build_dir) + "/../build_cmake/zephyr/include",
-    rebase_path(target_out_dir, root_build_dir) + "/../build_cmake/zephyr/include/generated",
+  ]
+}
+
+config("defines") {
+  defines = [
+   "KERNEL",
+   "K_HEAP_MEM_POOL_SIZE=0",
+   "PICOLIBC_LONG_LONG_PRINTF_SCANF",
+   "__LINUX_ERRNO_EXTENSIONS__",
+   "__PROGRAM_START",
+   "__ZEPHYR__=1",
   ]
 }
 
 static_library("hearables_app") {
   sources = [ "app/main.cc" ]
-  public_configs = [":public_includes"]
+  public_configs = [
+    ":public_includes",
+    ":defines",
+  ]
   cflags = [
     "-include",
-    rebase_path(target_out_dir, root_build_dir) + "/../build_cmake/zephyr/include/generated/zephyr/autoconf.h",
+    rebase_path(root_build_dir) + "/build_cmake/zephyr/include/generated/zephyr/autoconf.h",
     "-include",
-    rebase_path(target_out_dir, root_build_dir) + "/../build_cmake/zephyr/include/generated/zephyr/devicetree_generated.h",
+    rebase_path(root_build_dir) + "/build_cmake/zephyr/include/generated/zephyr/devicetree_generated.h",
+
+    "-fno-strict-aliasing",
+    "-Os",
+    "-imacros",
+    "/usr/local/google/home/zengk/wrk/code/zephyr-app-gn/zephyr-app-gn/out/build_cmake/zephyr/include/generated/zephyr/autoconf.h",
+    "-fno-printf-return-value",
+    "-fno-common",
+    "-g",
+    "-gdwarf-4",
+    "-fdiagnostics-color=always",
+    "-mcpu=cortex-m7",
+    "-mthumb",
+    "-mabi=aapcs",
+    "-mfp16-format=ieee",
+    "-mtp=soft",
+    "-I",
+    "/usr/local/google/home/zengk/wrk/code/zephyr-app-gn/zephyr-app-gn/zephyr/kernel/include",
+    "-I",
+    "/usr/local/google/home/zengk/wrk/code/zephyr-app-gn/zephyr-app-gn/zephyr/arch/arm/include",
+    "-I",
+    "/usr/local/google/home/zengk/wrk/code/zephyr-app-gn/zephyr-app-gn/out/build_cmake/zephyr/include/generated/zephyr",
+    "-I",
+    "/usr/local/google/home/zengk/wrk/code/zephyr-app-gn/zephyr-app-gn/zephyr/include",
+    "-I",
+    "/usr/local/google/home/zengk/wrk/code/zephyr-app-gn/zephyr-app-gn/out/build_cmake/zephyr/include/generated",
+    "-I",
+    "/usr/local/google/home/zengk/wrk/code/zephyr-app-gn/zephyr-app-gn/zephyr/soc/atmel/sam",
+    "-I",
+    "/usr/local/google/home/zengk/wrk/code/zephyr-app-gn/zephyr-app-gn/zephyr/soc/atmel/sam/common/.",
+    "-I",
+    "/usr/local/google/home/zengk/wrk/code/zephyr-app-gn/zephyr-app-gn/zephyr/soc/atmel/sam/samx7x/.",
+    "-I",
+    "/usr/local/google/home/zengk/wrk/code/zephyr-app-gn/zephyr-app-gn/modules/hal/atmel/include",
+    "-I",
+    "/usr/local/google/home/zengk/wrk/code/zephyr-app-gn/zephyr-app-gn/modules/hal/atmel/asf/sam/include/same70b",
+    "-I",
+    "/usr/local/google/home/zengk/wrk/code/zephyr-app-gn/zephyr-app-gn/modules/hal/cmsis/CMSIS/Core/Include",
+    "-I",
+    "/usr/local/google/home/zengk/wrk/code/zephyr-app-gn/zephyr-app-gn/zephyr/modules/cmsis/." 
   ]
   deps = [
     # It's not enough to just link the Zephyr library. This library depends on the Zephyr headers to it needs to work like zephyr_library() from extensions.cmake where we depend on the Zephyr interface.
     # See zephyr/cmake/modules/extensions.cmake
     ":build_zephyr_lib",
+    ":build_pre0_cmd",
   ]
 }
 # Build the zephyr_pre0.elf but use our own app target instead of the one provided by Zephyr.
+
+action("replace_app_lib") {
+  script = "replace_app_in_ninja.py"
+  deps = [ ":hearables_app" ]
+  args = [
+    "-n",
+    "build_cmake/build.ninja",
+    "-l",
+    "app/libapp",
+    "-a",
+    "../obj/libhearables_app"
+  ]
+
+  # The stamp file path. Using target_gen_dir is a good practice for such intermediate files.
+  stamp_file = "${target_gen_dir}/replace_app_lib.stamp"
+
+  # Declare the stamp file as the output.
+  outputs = [
+    stamp_file,
+  ]
+}
+
+action("build_zephyr_app") {
+  script = "run_ninja.py"
+  deps = [ ":replace_app_lib" ]
+  args = [
+    "build_cmake",
+    "-c",
+  ]
+
+  # The stamp file path. Using target_gen_dir is a good practice for such intermediate files.
+  stamp_file = "${target_gen_dir}/build_zephyr_app.stamp"
+
+  # Declare the stamp file as the output.
+  outputs = [
+    stamp_file,
+  ]
+}
+
