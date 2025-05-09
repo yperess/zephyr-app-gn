@@ -69,19 +69,15 @@ def replace_library_in_ninja(ninja_filepath, old_lib_string, new_lib_string, out
                     changes_made_count += num_replacements_in_line
                     if num_replacements_in_line > 0 : # ensure line was actually affected by this specific replacement
                         lines_affected_count +=1
-                    # print(f"  L{line_num}: Modified ({num_replacements_in_line} occurrence(s) replaced)")
                 
                 if not found_app_block and re.search(app_regex, line_content):
-                    print(line_content)
                     found_app_block = True
                     continue
                 elif line_content == "\n" and found_app_block:
-                    print(line_content)
                     print("-- Done skipping app block")
                     found_app_block = False
                     continue
                 elif found_app_block:
-                    print(line_content)
                     continue
                     
                 modified_lines.append(modified_line_content)
