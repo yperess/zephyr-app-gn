@@ -62,7 +62,7 @@ config("public_includes") {
 }
 
 static_library("hearables_app") {
-  sources = [ "app/main.cc" ]
+  sources = [ "gn_app/prod_app.cc" ]
   public_configs = [
     ":public_includes",
     ":defines",
