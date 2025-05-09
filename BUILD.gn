@@ -1,21 +1,115 @@
-action("configure_cmake"){
+action("configure_cmake") {
   script = "configure_cmake.py"
   outputs = [ "$target_out_dir/build_cmake" ]
 }
 
-action("build_zephyr_lib"){
+action("build_zephyr_lib") {
   script = "build_zephyr_lib.py"
-  outputs = [ "$target_out_dir/build_cmake/libzephyr.a" ]
-  deps = [ 
-    ":configure_cmake"
+  outputs = [
+    "$target_out_dir/../build_cmake/zephyr/libzephyr.a",
+    "$target_out_dir/../build_cmake/zephyr/include/generated/zephyr/autoconf.h",
+    "$target_out_dir/../build_cmake/zephyr/include/generated/zephyr/devicetree_generated.h",
+  ]
+  deps = [ ":configure_cmake" ]
+  args = [
+    "-t",
+    "libzephyr.a",
   ]
 }
 
+config("defines") {
+  defines = [
+   "KERNEL",
+   "K_HEAP_MEM_POOL_SIZE=0",
+   "PICOLIBC_LONG_LONG_PRINTF_SCANF",
+   "__LINUX_ERRNO_EXTENSIONS__",
+   "__PROGRAM_START",
+   "__ZEPHYR__=1",
+  ]
+  cflags = [
+    "-fno-printf-return-value",
+    "-fno-common",
+    "-g",
+    "-gdwarf-4",
+    "-fdiagnostics-color=always",
+    "-mcpu=cortex-m7",
+    "-mthumb",
+    "-mabi=aapcs",
+    "-mfp16-format=ieee",
+    "-mtp=soft",
+    "-fno-strict-aliasing",
+    "-Os",
+    "-imacros",
+    rebase_path(root_build_dir) + "/build_cmake/zephyr/include/generated/zephyr/autoconf.h",
+  ]
+}
 
-executable("test") {
-  sources = ["app/main.cc"]
-  deps = [ 
-    ":build_zephyr_lib", 
+config("public_includes") {
+  include_dirs = [
+    "zephyr/include",
+    "zephyr/modules/cmsis",
+    "modules/hal/cmsis/CMSIS/Core/Include",
+    "zephyr/kernel/include",
+    "zephyr/arch/arm/include",
+    "zephyr/soc/atmel/sam",
+    "zephyr/soc/atmel/sam/common/.",
+    "zephyr/soc/atmel/sam/samx7x/.",
+    "modules/hal/atmel/asf/sam/include/same70b",
+    rebase_path(root_build_dir) + "/build_cmake/zephyr/include/generated/zephyr",
+    rebase_path(root_build_dir) + "/build_cmake/zephyr/include/generated",
+  ]
+  
+}
+
+static_library("hearables_app") {
+  sources = [ "gn_app/prod_app.cc" ]
+  public_configs = [
+    ":public_includes",
+    ":defines",
+  ]
+  deps = [
+    # It's not enough to just link the Zephyr library. This library depends on the Zephyr headers to it needs to work like zephyr_library() from extensions.cmake where we depend on the Zephyr interface.
+    # See zephyr/cmake/modules/extensions.cmake
+    ":build_zephyr_lib",
+  ]
+}
+# Build the zephyr_pre0.elf but use our own app target instead of the one provided by Zephyr.
+
+action("replace_app_lib") {
+  script = "replace_app_in_ninja.py"
+  deps = [ ":hearables_app" ]
+  args = [
+    "-n",
+    "build_cmake/build.ninja",
+    "-l",
+    "app/libapp",
+    "-a",
+    "../obj/libhearables_app"
   ]
 
+  # The stamp file path. Using target_gen_dir is a good practice for such intermediate files.
+  stamp_file = "${target_gen_dir}/replace_app_lib.stamp"
+
+  # Declare the stamp file as the output.
+  outputs = [
+    stamp_file,
+  ]
 }
+
+action("build_zephyr_app") {
+  script = "run_ninja.py"
+  deps = [ ":replace_app_lib" ]
+  args = [
+    "build_cmake",
+    "-c",
+  ]
+
+  # The stamp file path. Using target_gen_dir is a good practice for such intermediate files.
+  stamp_file = "${target_gen_dir}/build_zephyr_app.stamp"
+
+  # Declare the stamp file as the output.
+  outputs = [
+    stamp_file,
+  ]
+}
+
